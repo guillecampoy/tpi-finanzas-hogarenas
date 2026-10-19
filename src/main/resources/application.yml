@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: finanzas-hogarenas
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/finanzas_hogar}
+      database: ${MONGODB_DATABASE:finanzas_hogar}
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
