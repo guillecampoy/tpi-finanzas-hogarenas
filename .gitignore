@@ -1,0 +1,13 @@
+.DS_Store
+.vscode/
+.env
+
+# Maven build output
+/target/
+*.class
+
+# Java IDE metadata
+.idea/
+.settings/
+.classpath
+.project
