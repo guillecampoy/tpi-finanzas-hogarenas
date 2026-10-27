@@ -25,14 +25,12 @@ Diseñar e implementar una API pequeña que permita registrar y consultar **ingr
 
 **Opcional, IMPORTANTE, sólo si queda tiempo:** aggregation por categoría, índices fundamentados, validación JSON Schema en MongoDB, tests automáticos puntuales. No se implementarán inversiones, tarjetas, conciliación, presupuestos avanzados ni autenticación de usuarios.
 
-## 3. Modelo propuesto (a validar @Luis)
+## 3. Modelo de datos
 
-| Colección | Responsabilidad | Vinculación |
-| --- | --- | --- |
-| `usuarios` | Quién registra un movimiento | Referencia desde `movimientos.creadoPorId` |
-| `cuentas` | Origen/destino de fondos (efectivo, banco, billetera) | Referencia desde `movimientos.cuentaId` |
-| `categorias` | Catálogo de clasificación de movimientos | Referencia lógica y snapshot embebida en `movimientos.categoria` |
-| `movimientos` | Ingresos/egresos | Referencias y snapshot indicada |
+El sistema utiliza cuatro colecciones relacionadas mediante
+referencias (Linking) y documentos embebidos (Embedding).
+
+Ver [Modelo de datos](docs/modelo/modelo-datos.md).
 
 ### Ejemplo de movimiento
 
