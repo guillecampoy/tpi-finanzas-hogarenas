@@ -2,7 +2,7 @@
 
 > Trabajo Práctico Integrador de Bases de Datos II — MongoDB / NoSQL
 >
-> **Estado:** prototipo inicial · **Integrantes:** LUIS MARIANO RIVERA ORTIZ, GUILLERMO CAMPOY.  
+> **Estado:** CRUD de movimientos implementado; pendiente validación extremo a extremo con Atlas · **Integrantes:** LUIS MARIANO RIVERA ORTIZ, GUILLERMO CAMPOY.
 >  **Dominio:** finanzas domésticas
 
 ## 1. Objetivo
@@ -23,7 +23,7 @@ Diseñar e implementar una API pequeña que permita registrar y consultar **ingr
 - Script de backup con `mongodump`, directorio relativo `resguardos_tpi/AAAA-MM-DD/`.
 - Informe PDF con evidencias y coloquio: ambos integrantes dominan **todo** el proyecto.
 
-**Opcional, IMPORTANTE, sólo si queda tiempo:** aggregation por categoría, índices fundamentados, validación JSON Schema en MongoDB, tests automáticos puntuales. No se implementarán inversiones, tarjetas, conciliación, presupuestos avanzados ni autenticación de usuarios.
+**Opcional, IMPORTANTE, sólo si queda tiempo:** aggregation por categoría, índices fundamentados y validación JSON Schema en MongoDB. Hay pruebas unitarias puntuales del controlador. No se implementarán inversiones, tarjetas, conciliación, presupuestos avanzados ni autenticación de usuarios.
 
 ## 3. Modelo de datos
 
@@ -36,21 +36,21 @@ Ver [Modelo de datos](docs/modelo/modelo-datos.md).
 
 ```json
 {
-  "descripcion": "Compra en supermercado",
-  "monto": "48500.00",
+  "descripcion": "Reparación del aire acondicionado",
+  "monto": "10000.00",
   "tipo": "EGRESO",
   "fecha": "2026-10-18",
   "cuentaId": "507f1f77bcf86cd799439011",
   "creadoPorId": "507f191e810c19729de860ea",
   "categoria": {
     "id": "507f1f77bcf86cd799439012",
-    "nombre": "Alimentación"
+    "nombre": "Reparaciones"
   },
   "activo": true
 }
 ```
 
-**Nota de IMPORTANTE sobre soporte para dinero:** en persistencia MongoDB se propone `Decimal128` para `monto` y Java `BigDecimal`; el ejemplo JSON representa el importe como *string* decimal para evitar problemas de precisión. El contrato definitivo debe quedar asentado en `docs/api/` y reflejar lo implementado.
+**Importe:** MongoDB lo almacena como `Decimal128`, Java lo maneja con `BigDecimal` y la API lo recibe/devuelve como *string* decimal para evitar problemas de precisión.
 
 ### Decisión de diseño para la defensa
 
@@ -73,7 +73,23 @@ Las relaciones son *lógicas*, no claves foráneas impuestas automáticamente po
 | `DELETE` | `/api/movimientos/{id}` | **Baja lógica** (`204` / `404`) |
 | `GET` | `/api/health` | Confirmar que la API responde (`200`, no prueba Atlas) |
 
-**Contrato mínimo:** validar descripción no vacía, monto mayor a cero, tipo `INGRESO`/`EGRESO`, fechas válidas, IDs válidas y categorías/cuentas existentes. Definir respuesta consistente ante errores (`400`, `404`, `500`). El prototipo contiene únicamente el endpoint de salud; el resto es trabajo pendiente a implementar.
+**Estado de implementación:** las rutas CRUD de movimientos están implementadas. `POST` y `PATCH` validan campos, formato y referencias activas; `PATCH`, `GET` y `DELETE` lógico rechazan IDs inválidos o movimientos inexistentes/inactivos según el contrato. Los errores de validación responden `400`, los recursos inexistentes `404`. La persistencia requiere una instancia MongoDB configurada; falta completar la prueba extremo a extremo contra Atlas.
+
+El cuerpo de `POST` requiere `descripcion`, `monto`, `tipo`, `fecha`, `cuentaId`, `creadoPorId` y `categoriaId`. La fecha de entrada usa `yyyy-MM-dd`; el monto se envía como texto decimal. `PATCH` acepta esos mismos campos como opcionales y modifica solo los informados. Ejemplo de creación:
+
+```json
+{
+  "descripcion": "Compra en supermercado",
+  "monto": "48500.00",
+  "tipo": "EGRESO",
+  "fecha": "2026-10-18",
+  "cuentaId": "507f1f77bcf86cd799439011",
+  "creadoPorId": "507f191e810c19729de860ea",
+  "categoriaId": "507f1f77bcf86cd799439012"
+}
+```
+
+La respuesta incluye la categoría embebida como `{ "id", "nombre" }`, preservando el nombre vigente al momento de registrar o cambiar la categoría.
 
 ## 5. Stack y herramientas
 
@@ -97,9 +113,9 @@ Estructura intencionalmente corta: `api/`, `model/`, `repository/`. Una capa `se
 │   ├── main/
 │   │   ├── java/ar/edu/tpi/finanzas/
 │   │   │   ├── FinanzasApplication.java
-│   │   │   ├── api/HealthController.java
-│   │   │   ├── model/                # TODO: documentos / DTOs
-│   │   │   └── repository/           # TODO: interfaces de acceso
+│   │   │   ├── api/                  # health y CRUD HTTP de movimientos
+│   │   │   ├── model/                # documentos MongoDB
+│   │   │   └── repository/           # acceso a movimientos
 │   │   └── resources/application.yml
 │   └── test/java/ar/edu/tpi/finanzas/
 ├── docs/
@@ -209,9 +225,11 @@ Abrir estas direcciones en el navegador, con la aplicación en ejecución:
 | [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html) | Interfaz Swagger UI con las rutas disponibles. |
 | [http://localhost:8080/v3/api-docs](http://localhost:8080/v3/api-docs) | Definición OpenAPI en formato JSON. |
 
+**Antes de probar el CRUD:** cargar las entidades demo en una base nueva siguiendo [examples/README.md](examples/README.md). La precarga crea/actualiza los documentos con los IDs fijos que Swagger muestra para `cuentaId`, `categoriaId` y `creadoPorId`; si se usa otra base o se cambian esos IDs, actualizar también los ejemplos.
+
 **Cómo probar Swagger:** abrir Swagger UI, desplegar una operación, pulsar **Try it out** y después **Execute**. El navegador mostrará el código HTTP y la respuesta.
 
-**Ojo con esta distinción:** hoy el andamiaje solo implementa `/api/health`. Poder abrir Swagger o recibir `200` desde `/api/health` **no demuestra que se haya conectado a Atlas**. Cuando se implemente el repositorio y el CRUD de `movimientos`, deberán insertar y consultar un documento real para verificar la conexión. Hasta entonces, que no aparezcan las rutas de movimientos **no es un error**.
+**Ojo con esta distinción:** el CRUD de movimientos está implementado y aparece en Swagger. Recibir `200` desde `/api/health` solo demuestra que la API responde; tampoco demuestra conexión a Atlas. Para comprobar la persistencia, hay que ejecutar las operaciones CRUD con una URI válida y documentos de referencia activos en `usuarios`, `cuentas` y `categorias`.
 
 ### Paso 6 — Hacer un primer cambio (ejercicio de práctica)
 
@@ -273,7 +291,7 @@ Un directorio vacío o sin colecciones no demuestra un backup completo: probarlo
 - [ ] Creé mi `.env` local sin subirlo a Git.
 - [ ] Arranqué Spring Boot sin errores.
 - [ ] Abrí `/api/health` y Swagger UI en el navegador.
-- [ ] Entiendo que la prueba de conexión con Atlas queda pendiente hasta implementar el CRUD.
+- [ ] Entiendo que el CRUD está implementado, pero la conexión real y prueba extremo a extremo con Atlas siguen pendientes.
 - [ ] Cuando haya datos: ejecuté `mongodump` y confirmé los archivos de respaldo.
 
 ## 8. Checklist de la entrega
@@ -285,7 +303,7 @@ Un directorio vacío o sin colecciones no demuestra un backup completo: probarlo
 - [ ] Explicar con ejemplos **embedding** y **linking**, incluyendo los trade-offs.
 - [ ] Crear Atlas M0; configurar Database Access y Network Access.
 - [ ] Probar conexión real desde el backend a Atlas.
-- [ ] Implementar CREATE, READ, UPDATE y DELETE **lógico** desde código.
+- [x] Implementar CREATE, READ, UPDATE y DELETE **lógico** desde código.
 - [ ] Verificar que las lecturas no muestran documentos inactivos.
 - [ ] Ejecutar el script con `mongodump` y conservar evidencia del backup.
 
@@ -314,9 +332,9 @@ No asignar trabajo solo por especialidad: **cada tarea debe ser revisada y expli
 | T02 | Definir documentos, embedding/linking y baja lógica | Alta | Sin asignar | Pendiente |
 | T03 | Crear Atlas M0 y acceso restringido | Alta | Sin asignar | Pendiente |
 | T04 | Conectar Java/Spring con Atlas | Alta | Sin asignar | Pendiente |
-| T05 | Implementar POST + validaciones | Alta | Sin asignar | Pendiente |
-| T06 | Implementar GET (filtrado por activo) | Alta | Sin asignar | Pendiente |
-| T07 | Implementar PATCH por campos y DELETE lógico | Alta | Sin asignar | Pendiente |
+| T05 | Implementar POST + validaciones | Alta | Sin asignar | Implementado; falta prueba E2E con Atlas |
+| T06 | Implementar GET (filtrado por activo) | Alta | Sin asignar | Implementado; falta prueba E2E con Atlas |
+| T07 | Implementar PATCH por campos y DELETE lógico | Alta | Sin asignar | Implementado; falta prueba E2E con Atlas |
 | T08 | Completar Swagger/OpenAPI y ejemplos | Alta | Sin asignar | Pendiente |
 | T09 | Completar y ejecutar `mongodump` | Alta | Sin asignar | Pendiente |
 | T10 | Datos demo y prueba extremo a extremo | Alta | Sin asignar | Pendiente |
@@ -326,12 +344,12 @@ No asignar trabajo solo por especialidad: **cada tarea debe ser revisada y expli
 
 **Organización sugerida:** primero acordar juntos el modelo; después dividir T03–T09 según disponibilidad; cerrar juntos T10–T12. Usar PRs o revisión de pares sencilla (sin un proceso de Git complejo).
 
-## 10. Plan de prototipo por hitos
+## 10. Estado por hitos
 
-1. **Hito A — Conexión:** levantar Spring, abrir Swagger, acceder a Atlas.
-2. **Hito B — Modelo:** insertar datos demo, comprobar referencias y snapshot embebida.
-3. **Hito C — CRUD:** ejecutar operaciones completas y comprobar baja lógica.
-4. **Hito D — Resguardo:** ejecutar `mongodump`, inspeccionar el resultado.
+1. **Hito A — Conexión:** configuración de Spring preparada; falta verificar acceso real a Atlas.
+2. **Hito B — Modelo:** modelo y validaciones implementados; falta insertar datos demo y comprobar referencias en Atlas.
+3. **Hito C — CRUD:** endpoints CRUD y pruebas unitarias implementados; falta la demostración extremo a extremo con baja lógica.
+4. **Hito D — Resguardo:** ejecutar `mongodump` e inspeccionar el resultado.
 5. **Hito E — Defensa:** generar PDF, capturas y ensayo cruzado.
 
 ## 11. Decisiones pendientes / riesgos
