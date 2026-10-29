@@ -24,7 +24,7 @@ erDiagram
 
     CUENTAS {
         ObjectId _id PK
-        ObjectId usuarioId FK
+        ObjectId creadoPorId FK
         string nombre
         string tipo
         string moneda
@@ -47,7 +47,7 @@ erDiagram
 
     MOVIMIENTOS {
         ObjectId _id PK
-        ObjectId usuarioId FK
+        ObjectId creadoPorId FK
         ObjectId cuentaId FK
         object categoria "Embedding: id + nombre"
         string descripcion
@@ -63,7 +63,7 @@ erDiagram
 
 ## Decisiones de modelado
 
-- **Linking:** `usuarioId` y `cuentaId` referencian documentos independientes. `categoria.id` referencia una categoría dentro del subdocumento embebido.
+- **Linking:** `creadoPorId` y `cuentaId` referencian documentos independientes. `categoria.id` referencia una categoría dentro del subdocumento embebido.
 - **Embedding:** `movimientos.categoria` contiene `{ id, nombre }` para preservar el nombre histórico usado al registrar el movimiento.
 - **Baja lógica:** todas las colecciones utilizan `activo` y `deletedAt`; no se eliminan documentos físicamente.
 - **Importes:** `Decimal128` evita los problemas de precisión binaria de `double` para dinero.
